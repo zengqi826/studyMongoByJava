@@ -1,5 +1,6 @@
 ================
 Welcome to M220J
+study MongoDB By Java driver
 ================
 
 In this course we will be exploring how to use MongoDB in the Java environment.
