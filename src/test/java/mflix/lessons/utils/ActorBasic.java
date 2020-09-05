@@ -7,7 +7,7 @@ import java.util.Date;
 import java.util.List;
 
 public class ActorBasic {
-  @BsonProperty (value = "id")
+  @BsonProperty (value = "_id")
   private ObjectId id;
   private String name;
   @BsonProperty (value = "date_of_birth")
