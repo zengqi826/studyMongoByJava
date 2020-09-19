@@ -205,8 +205,8 @@ public class UsingAggregationBuilders extends AbstractLesson {
 
     // list to collect shorterPipeline results
     List<Document> sortByCountResults = new ArrayList<>();
-
-    for (Document doc : moviesCollection.aggregate(shorterPipeline)) {
+    AggregateIterable<Document> aggregate = moviesCollection.aggregate(shorterPipeline);
+    for (Document doc : aggregate) {
       System.out.println(doc);
       sortByCountResults.add(doc);
     }

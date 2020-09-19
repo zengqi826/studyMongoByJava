@@ -104,7 +104,7 @@ public class PagingTest extends TicketTest {
     movieDocs = dao.getMoviesByGenre(sortKey, 20, skip, genre);
     Assert.assertEquals(
             "Expected `title` field does match: Please check your " + "getMoviesByGenre() movies sort order.",
-            "Only the Dead",
+            "Wolf Hall",
             movieDocs.get(0).getString("title"));
     countPageFinal = movieDocs.size();
 
