@@ -1,15 +1,12 @@
 package mflix.api.daos;
 
 import com.mongodb.MongoClientSettings;
-import com.mongodb.MongoWriteException;
 import com.mongodb.ReadConcern;
-import com.mongodb.WriteConcern;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.Aggregates;
 import com.mongodb.client.model.Filters;
 import com.mongodb.client.model.Sorts;
-import com.mongodb.client.model.UpdateOptions;
 import com.mongodb.client.model.Updates;
 import com.mongodb.client.result.DeleteResult;
 import com.mongodb.client.result.UpdateResult;
@@ -25,9 +22,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
-import org.springframework.util.StringUtils;
 
-import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -128,22 +123,22 @@ public class CommentDao extends AbstractMFlixDao {
    * @return true if successful deletes the comment.
    */
   public boolean deleteComment(String commentId, String email) {
-      // Create a delete filter that includes the commentId and owner email
-      Bson filter = Filters.and(
-          Filters.eq("email", email),
-          Filters.eq("_id", new ObjectId(commentId))
-      );
-      // Call deleteOne()
-      DeleteResult res = commentCollection.deleteOne(filter);
-      // in case the delete count is different than one the document
-      // either does not exist or it does not match the email + _id filter.
-      if (res.getDeletedCount() != 1) {
-        log.warn("Not able to delete comment `{}` for user `{}`. User" +
-                " does not own comment or already deleted!",
-            commentId, email);
-        return false;
-      }
-      return true;
+    // Create a delete filter that includes the commentId and owner email
+    Bson filter = Filters.and(
+        Filters.eq("email", email),
+        Filters.eq("_id", new ObjectId(commentId))
+    );
+    // Call deleteOne()
+    DeleteResult res = commentCollection.deleteOne(filter);
+    // in case the delete count is different than one the document
+    // either does not exist or it does not match the email + _id filter.
+    if (res.getDeletedCount() != 1) {
+      log.warn("Not able to delete comment `{}` for user `{}`. User" +
+              " does not own comment or already deleted!",
+          commentId, email);
+      return false;
+    }
+    return true;
   }
 
   /**
@@ -155,12 +150,41 @@ public class CommentDao extends AbstractMFlixDao {
    */
   public List<Critic> mostActiveCommenters() {
     List<Critic> mostActive = new ArrayList<>();
-    // // TODO> Ticket: User Report - execute a command that returns the
-    // // list of 20 users, group by number of comments. Don't forget,
-    // // this report is expected to be produced with an high durability
-    // // guarantee for the returned documents. Once a commenter is in the
-    // // top 20 of users, they become a Critic, so mostActive is composed of
-    // // Critic objects.
+
+    /**
+     * In this method we can use the $sortByCount stage:
+     * https://docs.mongodb.com/manual/reference/operator/aggregation/sortByCount/index.html
+     * using the $email field expression.
+     */
+    Bson groupByCountStage = Aggregates.sortByCount("$email");
+    // Let's sort descending on the `count` of comments
+    Bson sortStage = Aggregates.sort(Sorts.descending("count"));
+    // Given that we are required the 20 top users we have to also $limit
+    // the resulting list
+    Bson limitStage = Aggregates.limit(20);
+    // Add the stages to a pipeline
+    List<Bson> pipeline = new ArrayList<>();
+    pipeline.add(groupByCountStage);
+    pipeline.add(sortStage);
+    pipeline.add(limitStage);
+
+    // We cannot use the CommentDao class `commentCollection` object
+    // since this returns Comment objects.
+    // We need to create a new collection instance that returns
+    // Critic objects instead.
+    // Given that this report is required to be accurate and
+    // reliable, we want to guarantee a high level of durability, by
+    // ensuring that the majority of nodes in our Replica Set
+    // acknowledged all documents for this query. Therefore we will be
+    // setting our ReadConcern to "majority"
+    // https://docs.mongodb.com/manual/reference/method/cursor.readConcern/
+    MongoCollection<Critic> commentCriticCollection =
+        this.db.getCollection("comments", Critic.class)
+            .withCodecRegistry(this.pojoCodecRegistry)
+            .withReadConcern(ReadConcern.MAJORITY);
+
+    // And execute the aggregation command output in our collection object.
+    commentCriticCollection.aggregate(pipeline).into(mostActive);
     return mostActive;
   }
 }
