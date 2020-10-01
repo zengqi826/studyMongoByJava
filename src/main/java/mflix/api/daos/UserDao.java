@@ -80,8 +80,8 @@ public class UserDao extends AbstractMFlixDao {
     Bson updateFilter = new Document("user_id", userId);
     Bson setUpdate = Updates.set("jwt", jwt);
     UpdateOptions options = new UpdateOptions().upsert(true);
-    sessionsCollection.updateOne(updateFilter, setUpdate, options);
-    return true;
+    UpdateResult updateResult = sessionsCollection.updateOne(updateFilter, setUpdate, options);
+    return updateResult.wasAcknowledged();
     //TODO > Ticket: Handling Errors - implement a safeguard against
     // creating a session with the same jwt token.
   }
