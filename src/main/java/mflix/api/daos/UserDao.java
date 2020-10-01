@@ -29,6 +29,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
+import static com.mongodb.client.model.Updates.set;
 import static org.bson.codecs.configuration.CodecRegistries.fromProviders;
 import static org.bson.codecs.configuration.CodecRegistries.fromRegistries;
 
@@ -145,10 +146,20 @@ public class UserDao extends AbstractMFlixDao {
    * @return User object that just been updated.
    */
   public boolean updateUserPreferences(String email, Map<String, ?> userPreferences) {
-    //TODO> Ticket: User Preferences - implement the method that allows for user preferences to
-    // be updated.
-    //TODO > Ticket: Handling Errors - make this method more robust by
-    // handling potential exceptions when updating an entry.
-    return false;
+// make sure to check if userPreferences are not null. If null, return false immediately.
+    if(userPreferences == null){
+      throw new IncorrectDaoOperation(
+          "userPreferences cannot be set to null");
+    }
+    // create query filter and update object.
+    Bson updateFilter = new Document("email", email);
+    Bson updateObject = Updates.set("preferences", userPreferences);
+    // update one document matching email.
+    UpdateResult res = usersCollection.updateOne(updateFilter, updateObject);
+    if(res.getModifiedCount() < 1){
+      log.warn("User `{}` was not updated. Trying to re-write the same `preferences` field: `{}`",
+          email, userPreferences);
+    }
+    return res.wasAcknowledged();
   }
 }
