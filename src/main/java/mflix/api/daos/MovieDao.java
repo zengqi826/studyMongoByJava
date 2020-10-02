@@ -63,9 +63,12 @@ public class MovieDao extends AbstractMFlixDao {
    * @return true if valid movieId.
    */
   private boolean validIdValue(String movieId) {
-    //TODO> Ticket: Handling Errors - implement a way to catch a
-    //any potential exceptions thrown while validating a movie id.
-    //Check out this method's use in the method that follows.
+    try{
+      new ObjectId(movieId);
+    } catch (IllegalArgumentException e){
+      // value cannot be transformed into mongodb ObjectID
+      return false;
+    }
     return true;
   }
 

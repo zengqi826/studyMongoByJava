@@ -36,14 +36,13 @@ public class Migrator {
             if (!"".equals(imdbRating)) {
                 rating = Integer.valueOf(imdbRating);
             }
-            // TODO> Ticket: Migration - define the UpdateOneModel object for
-            // the rating type cleanup.
-            return new UpdateOneModel<Document>(new Document(), new
-            Document());
+            // Update the document based on his _id field
+            return new UpdateOneModel<>(
+                Filters.eq("_id", doc.getObjectId("_id")), Updates.set("imdb.rating", rating));
         } catch (NumberFormatException e) {
             System.out.println(
-                    MessageFormat.format(
-                            "Could not parse {0} into " + "number: {1}", doc.get("imdb.rating", e.getMessage())));
+                MessageFormat.format(
+                    "Could not parse {0} into " + "number: {1}", doc.get("imdb.rating", e.getMessage())));
         }
         return null;
     }
@@ -63,42 +62,37 @@ public class Migrator {
         try {
             if (lastUpdated != null) {
                 return new UpdateOneModel<>(
-                        Filters.eq("_id", doc.getObjectId("_id")),
-                        Updates.set("lastupdated", dateFormat.parse(lastUpdated)));
+                    Filters.eq("_id", doc.getObjectId("_id")),
+                    Updates.set("lastupdated", dateFormat.parse(lastUpdated)));
             }
 
         } catch (ParseException e) {
             System.out.println(
-                    MessageFormat.format(
-                            "String date {0} cannot be parsed using {1} " + "format: {2}",
-                            lastUpdated, dateFormat, e.getMessage()));
+                MessageFormat.format(
+                    "String date {0} cannot be parsed using {1} " + "format: {2}",
+                    lastUpdated, dateFormat, e.getMessage()));
         }
 
         return null;
     }
 
-    /**
-     * Migration script main class. This should be executed within the IDE!
-     *
-     * @param args is a set of system arguments that can be ignored.
-     */
     public static void main(String[] args) {
 
         System.out.println("Dataset cleanup migration");
 
         // set your MongoDB Cluster connection string
-        // TODO> Ticket: Migration - set the cluster connection string.
-        String mongoUri = "";
+        String mongoUri = "<YOUR ATLAS CLUSTER URI>";
 
         // instantiate database and collection objects
         MongoDatabase mflix = MongoClients.create(mongoUri).getDatabase("sample_mflix");
         MongoCollection<Document> movies = mflix.getCollection("movies");
-        Bson dateStringFilter = null;
+        Bson dateStringFilter =null;
         String datePattern = "";
-        // TODO> Ticket: Migration - create a query filter that finds all
-        // documents that are required to be updated and the correct date
-        // format pattern
-        Document queryFilter = new Document();
+        // use the same filters as expressed in the `MigrationTest` unit test
+        // to find all documents that need to be updated
+        dateStringFilter = Filters.type("lastupdated", "string");
+        // define the string pattern to be parsed
+        datePattern = "yyyy-MM-dd HH:mm:ss";
         SimpleDateFormat dateFormat = new SimpleDateFormat(datePattern);
 
         // create list of bulkWrites to be applied.
@@ -114,9 +108,9 @@ public class Migrator {
             }
         }
 
-        // TODO> Ticket: Migration - create a query filter that finds
-        // documents where `imdb.rating` is of type string
-        Bson ratingStringFilter = new Document();
+        // same filter has the one found in the unit test for the rating field.
+        Bson ratingStringFilter = Filters.not(Filters.type("imdb.rating", "number"));
+
         for (Document doc : movies.find(ratingStringFilter)) {
             // Apply "imdb.rating" string to number conversion
             WriteModel<Document> updateRating = transformRating(doc);
@@ -126,8 +120,8 @@ public class Migrator {
         }
 
         // execute the bulk update
-        // TODO> Ticket: Migration - set the bulkWrite options
-        BulkWriteOptions bulkWriteOptions = null;
+        // in this case we don't need the operations to ordered
+        BulkWriteOptions bulkWriteOptions = new BulkWriteOptions().ordered(false);
         if (bulkWrites.isEmpty()) {
             System.out.println("Nothing to update!");
             System.exit(0);
@@ -136,6 +130,6 @@ public class Migrator {
         BulkWriteResult bulkResult = movies.bulkWrite(bulkWrites, bulkWriteOptions);
         // output the number of updated documents
         System.out.println(
-                MessageFormat.format("Updated {0} documents", bulkResult.getModifiedCount()));
+            MessageFormat.format("Updated {0} documents", bulkResult.getModifiedCount()));
     }
 }
